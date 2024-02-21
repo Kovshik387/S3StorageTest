@@ -15,6 +15,7 @@ services:
       MINIO_ROOT_USER: masoud
       MINIO_ROOT_PASSWORD: Strong#Pass#2022
     command: server --console-address ":9001" /data  
+    restart: always
 
   s3storagetest:
     container_name: 'storage-test'
