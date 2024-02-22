@@ -7,11 +7,13 @@ public static class Program
 
         var builder = WebApplication.CreateBuilder(args);
 
-        // Add services to the container.
+        var endpoint = "172.19.0.3:9000"; //работает
 
-        var endpoint = "127.0.0.1:9000";
-        var accessKey = "CQ4uKPZhmExjYQ5c8Vuc";
-        var secretKey = "v9FJvA04SI09ZdNoOEBgEuNADfzJOtlHVyGyaypC";
+        //var accessKey = "prsIiezvuWkHxIAhFid2";
+        //var secretKey = "RujN8ZOadiXDuYaS3oJEqcRQSIFqAgeciabGehYI";
+
+        var accessKey = "heOkcd71mpwvzCIuRkkO";
+        var secretKey = "EqrMmyG6KRai6J81s1fJSHmuYB4UQ24ftzRhgyJ8";
 
         builder.Services.AddControllers();
         builder.Services.AddEndpointsApiExplorer();
@@ -20,8 +22,8 @@ public static class Program
         builder.Services.AddMinio(configureClient => configureClient
                    .WithEndpoint(endpoint)
                    .WithCredentials(accessKey, secretKey)
-                   .WithSSL(true)
-                   );
+                   .WithSSL(false)
+                    );
 
         var app = builder.Build();
 
@@ -31,6 +33,8 @@ public static class Program
             app.UseSwagger();
             app.UseSwaggerUI();
         }
+
+        app.UseCors();
 
         app.UseHttpsRedirection();
 

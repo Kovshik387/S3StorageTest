@@ -25,7 +25,8 @@ services:
     build:
       context: .
       dockerfile: './S3StorageTest/Dockerfile'
-
+    depends_on:
+      - minio
     ports:
       - "8080:8080"
       - "8081:8081"
@@ -35,6 +36,10 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_HTTP_PORTS=8080
       - ASPNETCORE_HTTPS_PORTS=8081
+      - MINIO_HOST=192.168.44.76
+      - MINIO_PORT=9000
+      - MINIO_USER=masoud
+      - MINIO_PASSWORD=Strong#Pass#2022
     volumes:
       - ${APPDATA}/Microsoft/UserSecrets:/home/app/.microsoft/usersecrets:ro
       - ${APPDATA}/ASP.NET/Https:/home/app/.aspnet/https:ro

@@ -1,7 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Formatters;
 using Minio;
+using Minio.DataModel;
 using Minio.DataModel.Args;
 using Minio.Exceptions;
+using System.Net.Mime;
 
 namespace S3StorageTest.Controllersж;
 
@@ -18,13 +21,13 @@ public class ExampleController : ControllerBase
     [HttpGet("check")]
     public async Task<IActionResult> CheckFile()
     {
-        var getList = await minioClient.ListBucketsAsync().ConfigureAwait(false);
+        var getList = await minioClient.ListBucketsAsync();
         var beArgs = new BucketExistsArgs().WithBucket("test");
-        bool found = await minioClient.BucketExistsAsync(beArgs).ConfigureAwait(false);
+        bool found = await minioClient.BucketExistsAsync(beArgs);
 
-        if (found) { Ok(); }
+        logger.LogInformation($"found {found}");
 
-        logger.LogCritical(getList.Owner);
+        if (!found || getList.Buckets is null) { return BadRequest(); }
 
         foreach(var item in  getList.Buckets) { logger.LogDebug($"{item.Name} {item.CreationDateDateTime}"); }
 
@@ -32,30 +35,42 @@ public class ExampleController : ControllerBase
     }
 
     [HttpGet("test")]
-    public async Task<string> GetUrl()
+    public async Task<IActionResult> GetUrl(string name)
     {
-        // Create an async task for listing buckets.
-        var getListBucketsTask = await minioClient.PresignedGetObjectAsync(new PresignedGetObjectArgs().
-            WithBucket("test").
-            WithObject("golden-oldies.jpg").
-            WithExpiry(60*60)
+        logger.LogInformation(name);
+
+        //var objecturl = await minioClient.PresignedGetObjectAsync(new PresignedGetObjectArgs().
+        //    WithBucket("test").
+        //    WithObject(name).
+        //    WithExpiry(60 * 60 * 20)
+        //    );
+        //logger.LogInformation("url:" + objecturl);
+
+        var file = new MemoryStream();
+
+        var object_file = await minioClient.GetObjectAsync(new 
+            GetObjectArgs()
+            .WithObject(name)
+            .WithBucket("test")
+            .WithCallbackStream((stream) => { stream.CopyTo(file); })
             );
-        return getListBucketsTask;
-        //return Ok(await minioClient.PresignedGetObjectAsync(new PresignedGetObjectArgs().WithBucket("test-kovshik")));
+
+        //return Ok(objecturl);
+        //return File(objecturl,MediaTypeNames.Image.Jpeg);
+        return File(file,object_file.ContentType);
     }
 
     [HttpPut("put")]
-    public async Task<IActionResult> PutFile([FromBody]IFormFile file)
+    public async Task<IActionResult> PutFile(IFormFile file)
     {
         var bucketName = "test";
-        var objectName = "golden-oldies.jpg";
         var contentType = "application/jpg";
 
         try
         {
             // Make a bucket on the server, if not already present.
-            var beArgs = new BucketExistsArgs()
-                .WithBucket(bucketName);
+            var beArgs = new BucketExistsArgs().WithBucket(bucketName);
+            
             bool found = await minioClient.BucketExistsAsync(beArgs).ConfigureAwait(false);
             if (!found)
             {
@@ -63,14 +78,21 @@ public class ExampleController : ControllerBase
                     .WithBucket(bucketName);
                 await minioClient.MakeBucketAsync(mbArgs).ConfigureAwait(false);
             }
-            // Upload a file to bucket.
+            
+            var objName = Guid.NewGuid().ToString() + ".jpg";
+            
             var putObjectArgs = new PutObjectArgs()
                 .WithBucket(bucketName)
+                .WithObject(objName)
                 .WithStreamData(file.OpenReadStream())
-                .WithFileName(file.FileName)
+                .WithObjectSize(file.Length)
                 .WithContentType(contentType);
-            await minioClient.PutObjectAsync(putObjectArgs).ConfigureAwait(false);
-            Console.WriteLine("Successfully uploaded " + objectName);
+
+            await minioClient.PutObjectAsync(putObjectArgs);
+            
+            var info = await minioClient.StatObjectAsync(new StatObjectArgs().WithBucket("test").WithObject(objName));
+            
+            logger.LogInformation($"name: {info.ObjectName} | Etag {info.ETag} | {info.ContentType}");
         }
         catch (MinioException e)
         {
